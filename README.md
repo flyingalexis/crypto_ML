@@ -1,0 +1,2 @@
+# stockpred_data_indexer
+NOTE : YOU DO NEED TO SET UP THE FUTU HISTORICAL K-LINE TO USE THIS
