@@ -13,5 +13,5 @@ def merge_csv(stock_code):
   df = pd.concat(arr_of_dfs).drop_duplicates().reset_index(drop=True)
   df['Date'] = pd.to_datetime(df.Date)
   df.sort_values('Date', ascending=True,inplace = True) # This now sorts in date order
-  df.to_csv(stock_code + '.csv')
+  # df.to_csv(stock_code + '.csv')  # not output csv for now
   return df
