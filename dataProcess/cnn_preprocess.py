@@ -29,11 +29,8 @@ def data_preprocess(df,freq):
         continue
       np_x_list.append(x_df.as_matrix())
       np_y_list.append(labels_list)
-
   np_x_list = np.array(np_x_list)
   np_y_list = np.array(np_y_list)
-  print(np_x_list.shape)
-  print(np_y_list.shape)
   return np_x_list,np_y_list
 
 # Open     0.613377
