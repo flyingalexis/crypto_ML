@@ -26,8 +26,8 @@ class cnn:
     self.X_batches = np.array_split(self.X_train, self.batch_num, axis= 0)
     self.Y_batches = np.array_split(self.Y_train, self.batch_num, axis= 0)
     self.session = tf.Session()
-    self.session.run(tf.global_variables_initializer())
     self.nn_construct()
+    self.session.run(tf.global_variables_initializer())
 
   def nn_construct(self):
     # declare input/output to the computational graph
@@ -52,7 +52,6 @@ class cnn:
 
     layer_flat, num_features = self.__flatten_layer(layer_conv2)
 
-    print(layer_flat)
     layer_fc1 = self.new_fc_layer(
         input=layer_flat,
         num_inputs=num_features,
@@ -80,36 +79,17 @@ class cnn:
 
   def optimize(self, num_iterations):
     start_time = time.time()
-
     for i in range(0, num_iterations):
         x_batch, y_true_batch = self.X_batches[i] , self.Y_batches[i]
-
+        x_batch = x_batch.reshape(5,-1)
         feed_dict_train = {self.x: x_batch, self.y_true: y_true_batch}
 
         self.session.run(self.optimizer, feed_dict=feed_dict_train)
 
-    total_iterations += num_iterations
+    # total_iterations += num_iterations
     end_time = time.time()
     time_dif = end_time - start_time
     print("Time usage: " + str(timedelta(seconds=int(round(time_dif)))))
-
-  
-  def __new_weights(self, shape):
-    return tf.Variable(tf.truncated_normal(shape, stddev=0.05))
-
-  def __new_biases(self, length):
-    return tf.Variable(tf.constant(0.05, shape=[length]))
-
-  def __flatten_layer(self, layer):
-    # layer_shape = layer.get_shape()
-    # num_features = layer_shape[:].num_elements()
-    # layer_flat = tf.reshape(layer, [-1, num_features])
-    layer_shape = layer.get_shape()
-    num_features = layer_shape[1:4].num_elements()  # because it is 2d cnn 
-    layer_flat = tf.reshape(layer, [-1, num_features])
-    print('layer shape')
-    print(layer_shape)
-    return layer_flat, num_features
 
   def new_conv_layer(self, input, num_input_channels, filter_size, num_filters, use_pooling=True):  # Use 2x2 max-pooling.
     shape = [filter_size, filter_size, num_input_channels , num_filters]
@@ -154,6 +134,20 @@ class cnn:
 
     return layer
     
+  def __new_weights(self, shape):
+    return tf.Variable(tf.truncated_normal(shape, stddev=0.05))
+
+  def __new_biases(self, length):
+    return tf.Variable(tf.constant(0.05, shape=[length]))
+
+  def __flatten_layer(self, layer):
+    # layer_shape = layer.get_shape()
+    # num_features = layer_shape[:].num_elements()
+    # layer_flat = tf.reshape(layer, [-1, num_features])
+    layer_shape = layer.get_shape()
+    num_features = layer_shape[1:4].num_elements()  # because it is 2d cnn 
+    layer_flat = tf.reshape(layer, [-1, num_features])
+    return layer_flat, num_features
 
 #------------------ end of model -----
 
