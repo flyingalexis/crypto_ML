@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import sklearn.model_selection as sk
 import tensorflow as tf
+import time
+from datetime import timedelta
 
 class cnn:
   def __init__(self, X , Y):
@@ -10,27 +12,150 @@ class cnn:
     self.X_train ,self.X_test , self.Y_train, self.Y_test = sk.train_test_split(X, Y, test_size= 0.2 , shuffle=True)
     self.hyper_param =	{
       "lr": 0.2,          # learning rate
-      "batch_size": 5     
+      "batch_size": 5,
+      'filter_num': [4,4],
+      'layers_num': 2,
+      'filter_size': [2,2],
+      'fc_size': [128,128]
     }
-    self.feature_size = X.shape[1]
+    self.feature_size = (X.shape[1],X.shape[2])
     self.label_size = Y.shape[1]
     self.batch_num = np.where(self.X_train.shape[0] % self.hyper_param['batch_size'] == 0,
                     (self.X_train.shape[0] /self.hyper_param['batch_size']),
                     int((self.X_train.shape[0] / self.hyper_param['batch_size']) + 1))
-    self.X_batches = np.array_split(X_train, batch_num, axis= 0)
-    self.Y_batches = np.array_split(y_train, batch_num, axis= 0)
+    self.X_batches = np.array_split(self.X_train, self.batch_num, axis= 0)
+    self.Y_batches = np.array_split(self.Y_train, self.batch_num, axis= 0)
     self.session = tf.Session()
+    self.session.run(tf.global_variables_initializer())
+    self.nn_construct()
 
   def nn_construct(self):
     # declare input/output to the computational graph
-    x = tf.placeholder(tf.float32, [None, self.feature_size])
-    y_true = tf.placeholder(tf.float32, [None, self.label_size])
-    y_true_cls = tf.placeholder(tf.int64, [None,2])
+    self.x = tf.placeholder(tf.float32, [None, self.feature_size[0] * self.feature_size[1] ])
+    x_matrix = tf.reshape(self.x, [-1, self.feature_size[0], self.feature_size[1],1])
+    self.y_true = tf.placeholder(tf.float32, shape=[None, self.label_size], name='y_true')
+    layer_conv1, weights_conv1 = self.new_conv_layer(
+      input=x_matrix,
+      num_input_channels=1,
+      filter_size=self.hyper_param['filter_size'][0],
+      num_filters=self.hyper_param['filter_num'][0],
+      use_pooling=True
+    )
 
+    layer_conv2, weights_conv2 = self.new_conv_layer(
+        input=layer_conv1,
+        num_input_channels=4,     # num filter[0]
+        filter_size=self.hyper_param['filter_size'][1],
+        num_filters=self.hyper_param['filter_num'][1],
+        use_pooling=True
+    )
+
+    layer_flat, num_features = self.__flatten_layer(layer_conv2)
+
+    print(layer_flat)
+    layer_fc1 = self.new_fc_layer(
+        input=layer_flat,
+        num_inputs=num_features,
+        num_outputs=self.hyper_param['fc_size'][0],
+        use_relu=True
+    )
+
+    layer_fc2 = self.new_fc_layer(
+        input=layer_fc1,
+        num_inputs=self.hyper_param['fc_size'][0],
+        num_outputs=self.label_size,
+        use_relu=False
+    )
+
+    y_pred = tf.nn.softmax(layer_fc2)
+
+    # cost function
+    cost = tf.losses.mean_squared_error(
+        labels=self.y_true,
+        predictions=y_pred
+    )
+
+    # optimizer
+    self.optimizer = tf.train.AdamOptimizer(learning_rate=1e-3).minimize(cost)
+
+  def optimize(self, num_iterations):
+    start_time = time.time()
+
+    for i in range(0, num_iterations):
+        x_batch, y_true_batch = self.X_batches[i] , self.Y_batches[i]
+
+        feed_dict_train = {self.x: x_batch, self.y_true: y_true_batch}
+
+        self.session.run(self.optimizer, feed_dict=feed_dict_train)
+
+    total_iterations += num_iterations
+    end_time = time.time()
+    time_dif = end_time - start_time
+    print("Time usage: " + str(timedelta(seconds=int(round(time_dif)))))
+
+  
+  def __new_weights(self, shape):
+    return tf.Variable(tf.truncated_normal(shape, stddev=0.05))
+
+  def __new_biases(self, length):
+    return tf.Variable(tf.constant(0.05, shape=[length]))
+
+  def __flatten_layer(self, layer):
+    # layer_shape = layer.get_shape()
+    # num_features = layer_shape[:].num_elements()
+    # layer_flat = tf.reshape(layer, [-1, num_features])
+    layer_shape = layer.get_shape()
+    num_features = layer_shape[1:4].num_elements()  # because it is 2d cnn 
+    layer_flat = tf.reshape(layer, [-1, num_features])
+    print('layer shape')
+    print(layer_shape)
+    return layer_flat, num_features
+
+  def new_conv_layer(self, input, num_input_channels, filter_size, num_filters, use_pooling=True):  # Use 2x2 max-pooling.
+    shape = [filter_size, filter_size, num_input_channels , num_filters]
+    # shape = [filter_size, filter_size, num_input_channels, num_filters]
+
+    # Create new weights aka. filters with the given shape.
+    weights = self.__new_weights(shape=shape)
+
+    # Create new biases, one for each filter.
+    biases = self.__new_biases(length=num_filters)
+
+    layer = tf.nn.conv2d(input= input,
+                         filter=weights,
+                         strides=[1, 1, 1, 1],
+                         padding='SAME')
+
+    # Add the biases to the results of the convolution.
+    # A bias-value is added to each filter-channel.
+    layer += biases
+
+    # Use pooling to down-sample the image resolution?
+    if use_pooling:
+        layer = tf.nn.max_pool(value=layer,
+                               ksize=[1, 2, 2, 1],
+                               strides=[1, 2, 2, 1],
+                               padding='SAME')
+
+    layer = tf.nn.relu(layer)
+    return layer, weights
+
+  def new_fc_layer(self,input,          # The previous layer.
+                 num_inputs,     # Num. inputs from prev. layer.
+                 num_outputs,    # Num. outputs.
+                 use_relu=True): # Use Rectified Linear Unit (ReLU)?
+
+    weights = self.__new_weights(shape=[num_inputs, num_outputs])
+    biases = self.__new_biases(length=num_outputs)
+    layer = tf.matmul(input, weights) + biases
+
+    if use_relu:
+        layer = tf.nn.relu(layer)
+
+    return layer
     
 
 #------------------ end of model -----
-
 
 # # load data
 # df = db.get_pastdata_by_league('Brazilian Division 1')

@@ -5,4 +5,7 @@ from models import cnn_model
 
 df = csv_process.merge_csv('hsi')
 data_X , data_Y= cnn_preprocess.data_preprocess(df,'D')
-cnn_model.cnn(data_X,data_Y)
+print('finish data processing')
+print('Feeding data into model !!')
+cnn = cnn_model.cnn(data_X,data_Y)
+cnn.optimize(10)
