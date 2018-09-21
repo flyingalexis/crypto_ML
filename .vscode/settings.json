@@ -1,5 +1,5 @@
 {
-  "python.pythonPath": "/anaconda3/envs/tensorflowproject/bin/python",
+  "python.pythonPath": "/anaconda3/envs/py3.6/bin/python",
   "python.linting.pylintEnabled": true,
   "python.linting.enabled": true
 }

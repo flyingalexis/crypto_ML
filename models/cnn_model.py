@@ -77,11 +77,13 @@ class cnn:
     # optimizer
     self.optimizer = tf.train.AdamOptimizer(learning_rate=1e-3).minimize(cost)
 
-  def optimize(self, num_iterations):
+  def optimize(self, num_iterations = None):
     start_time = time.time()
-    for i in range(0, num_iterations):
+    if num_iterations == None or num_iterations > self.batch_num:
+      num_iterations = self.batch_num
+    for i in range(0, int(num_iterations)):
         x_batch, y_true_batch = self.X_batches[i] , self.Y_batches[i]
-        x_batch = x_batch.reshape(5,-1)
+        x_batch = x_batch.reshape(x_batch.shape[0],-1)
         feed_dict_train = {self.x: x_batch, self.y_true: y_true_batch}
 
         self.session.run(self.optimizer, feed_dict=feed_dict_train)
@@ -141,9 +143,6 @@ class cnn:
     return tf.Variable(tf.constant(0.05, shape=[length]))
 
   def __flatten_layer(self, layer):
-    # layer_shape = layer.get_shape()
-    # num_features = layer_shape[:].num_elements()
-    # layer_flat = tf.reshape(layer, [-1, num_features])
     layer_shape = layer.get_shape()
     num_features = layer_shape[1:4].num_elements()  # because it is 2d cnn 
     layer_flat = tf.reshape(layer, [-1, num_features])
