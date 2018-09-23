@@ -23,8 +23,9 @@ def data_preprocess(df,freq):
       # y_df = ( (df_list[idx + 1][['Open','High','Low','Close']] - sub_df['Close'].iloc[0]) / norm_factor / 2 ) + 0.5
       y_df = ( (df_list[idx + 1][['Close']] - sub_df['Close'].iloc[0]) / norm_factor / 2 ) + 0.5  # only use close make labels for now
       x_df = ( (sub_df[['Open','High','Low','Close']] - sub_df['Close'].iloc[0]) / norm_factor / 2 ) + 0.5
-      labels_list = (y_df[y_df >= x_df.iloc[0]].count() / y_df.shape[-1]).tolist()
+      labels_list = (y_df[y_df >= x_df.iloc[0]].count() / y_df.shape[0]).tolist()
       labels_list.append(y_df['Close'].mean())
+      # print(labels_list)
       if x_df.as_matrix().flatten().shape[0] != 272:      # skip non full-day df
         continue
       np_x_list.append(x_df.as_matrix())
