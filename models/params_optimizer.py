@@ -10,15 +10,33 @@
 #     }
 import decimal
 import itertools
+from .cnn_model import cnn 
 
-def cnn_optimize():
-    lr = [decimal.Decimal(i) / decimal.Decimal(10) for i in range(0, 3)]
-    filter_num = list(range(50,100))
+def cnn_optimize(X,Y):
+    lr = [decimal.Decimal(i) / decimal.Decimal(10) for i in range(1, 3)]
+    # filter_num = list(range(50,100))
+    keys = ['lr','filter_num','layers_num']
+    filter_num =[i for i in range(8,160,8)]
     layers_num = list(range(1,5))
-    # filter_dim = [ list(itertools.permutations(filter_num, i)) for i in layers_num ]
-    print(list(itertools.permutations(filter_num, 5)))
-    # print(filter_dim)
-    # print(list(itertools.product(lr,filter_num,layers_num)))
+    filter_dim = [ list(itertools.permutations(filter_num, i)) for i in layers_num ]
+    combs = []
+    for l in layers_num:
+        combs = combs + list(itertools.product(lr,filter_dim[l - 1],[l]))    # l -1 is not a good practice change it later ^^
+    param_list = [dict(zip(keys, c)) for c in combs]
+    
+    # start KCV ..
+    precision = []
+    for i in range(0,1000):
+        demo_cnn = cnn(X,Y,param_list[i])
+        precision.append(demo_cnn.kcv())
+        print('training idx : ' + str(i))
+        print('precision: ' , precision[i])
+
+    # write report
+    with open('CNN_KCV_REPORT.txt', 'w') as f:
+        for idx,p in enumerate(precision):
+            f.write("%s\t%s" % precision % param_list[idx])
 
 
-cnn_optimize()
+
+# cnn_optimize() # ez debug

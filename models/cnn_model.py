@@ -6,7 +6,7 @@ import time
 from datetime import timedelta
 
 class cnn:
-  def __init__(self, X , Y):
+  def __init__(self, X , Y, h_params):
     self.X = X.reshape(X.shape[0],-1)
     self.Y = Y
     self.X_train ,self.X_test , self.Y_train, self.Y_test = sk.train_test_split(X, Y, test_size= 0.2 , shuffle=True)
@@ -20,6 +20,8 @@ class cnn:
       'input_channel' : 1,
       'concession': 0.02  # error within 2%
     }
+    self.hyper_param.update(h_params)
+    print(self.hyper_param)
     self.feature_size = (X.shape[1],X.shape[2])
     self.label_size = Y.shape[1]
     self.batch_num = np.where(self.X_train.shape[0] % self.hyper_param['batch_size'] == 0,
@@ -27,7 +29,10 @@ class cnn:
                     int((self.X_train.shape[0] / self.hyper_param['batch_size']) + 1))
     self.X_batches = np.array_split(self.X_train, self.batch_num, axis= 0)
     self.Y_batches = np.array_split(self.Y_train, self.batch_num, axis= 0)
-    self.session = tf.Session()
+    # self.session = tf.Session()
+    gpu_options = tf.GPUOptions(allow_growth=True) 
+    session_config = tf.ConfigProto(allow_soft_placement=True, log_device_placement=False, gpu_options=gpu_options)
+    self.session = tf.Session(config=session_config)
     self.nn_construct()
     self.session.run(tf.global_variables_initializer())
 
@@ -109,13 +114,13 @@ class cnn:
   def kcv(self):
     kf = sk.KFold(n_splits=8)
     accs = []
-    for idx, (train_index, test_index) in enumerate(kf.split(self.X)):
+    for train_index, test_index in kf.split(self.X):
       tf.global_variables_initializer()
       f_dict = {self.x: self.X[train_index] , self.y_true: self.Y[train_index] }
       self.session.run(self.optimizer, feed_dict=f_dict )
       f_dict_test = {self.x: self.X[test_index] , self.y_true: self.Y[test_index] }
       accs.append(self.session.run(self.accuracy, feed_dict=f_dict_test))
-    print(sum(accs)/len(accs))
+    return sum(accs)/len(accs)
       
   def __new_weights(self, shape):
     return tf.Variable(tf.truncated_normal(shape, stddev=0.05))
@@ -124,9 +129,6 @@ class cnn:
     return tf.Variable(tf.constant(0.05, shape=[length]))
 
   def __flatten_layer(self, layer):
-    # layer_shape = layer.get_shape()
-    # num_features = layer_shape[:].num_elements()
-    # layer_flat = tf.reshape(layer, [-1, num_features])
     layer_shape = layer.get_shape()
     num_features = layer_shape[1:4].num_elements()  # because it is 2d cnn 
     layer_flat = tf.reshape(layer, [-1, num_features])
@@ -134,24 +136,13 @@ class cnn:
 
   def new_conv_layer(self, input, num_input_channels, filter_size, num_filters, use_pooling=True):  # Use 2x2 max-pooling.
     shape = [filter_size, filter_size, num_input_channels , num_filters]
-    # shape = [filter_size, filter_size, num_input_channels, num_filters]
-
-    # Create new weights aka. filters with the given shape.
     weights = self.__new_weights(shape=shape)
-
-    # Create new biases, one for each filter.
     biases = self.__new_biases(length=num_filters)
-
     layer = tf.nn.conv2d(input= input,
                          filter=weights,
                          strides=[1, 1, 1, 1],
                          padding='SAME')
-
-    # Add the biases to the results of the convolution.
-    # A bias-value is added to each filter-channel.
     layer += biases
-
-    # Use pooling to down-sample the image resolution?
     if use_pooling:
         layer = tf.nn.max_pool(value=layer,
                                ksize=[1, 2, 2, 1],
