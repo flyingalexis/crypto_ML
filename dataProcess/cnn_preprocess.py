@@ -26,7 +26,8 @@ def data_preprocess(df,freq):
       labels_list = (y_df[y_df >= x_df.iloc[0]].count() / y_df.shape[0]).tolist()
       labels_list.append(y_df['Close'].mean())
       # print(labels_list)
-      if x_df.as_matrix().flatten().shape[0] != 272:      # skip non full-day df
+      # print(x_df.as_matrix().flatten().shape[0])
+      if x_df.as_matrix().flatten().shape[0] != 272:      # skip non full-Hour df
         continue
       np_x_list.append(x_df.as_matrix())
       np_y_list.append(labels_list)

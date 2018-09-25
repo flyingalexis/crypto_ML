@@ -24,18 +24,21 @@ def cnn_optimize(X,Y):
         combs = combs + list(itertools.product(lr,filter_dim[l - 1],[l]))    # l -1 is not a good practice change it later ^^
     param_list = [dict(zip(keys, c)) for c in combs]
     
+    print('param list length ',len(param_list))
     # start KCV ..
-    precision = []
-    for i in range(0,1000):
-        demo_cnn = cnn(X,Y,param_list[i])
-        precision.append(demo_cnn.kcv())
+    precision = dict()
+    demo_cnn = cnn(X,Y,param_list[0])
+    print('good ',param_list[100000])
+    for i in range(100000,100100):
+        print(param_list[i])
+        precision[str(i)] = demo_cnn.kcv(param_list[i])
         print('training idx : ' + str(i))
-        print('precision: ' , precision[i])
+        print('precision: ' , precision[str(i)])
 
-    # write report
-    with open('CNN_KCV_REPORT.txt', 'w') as f:
-        for idx,p in enumerate(precision):
-            f.write("%s\t%s" % precision % param_list[idx])
+    # # write report
+    # with open('CNN_KCV_REPORT.txt', 'w') as f:
+    #     for idx,p in enumerate(precision):
+    #         f.write("%s\t%s" % precision % param_list[idx])
 
 
 

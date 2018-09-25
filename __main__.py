@@ -11,9 +11,8 @@ print('finish data processing')
 
 # ============================== data feeding  ===============================================
 
-# cnn = cnn_model.cnn(data_X,data_Y)
-# # cnn.optimize()    # method use for train the model
-# cnn.kcv()           # method use for performance evaluation
+# cnn = cnn_model.cnn(data_X,data_Y,dict())
+# cnn.optimize()    # method use for train the model
 
 # ========================================== EOS ===============================================
 
