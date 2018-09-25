@@ -29,7 +29,7 @@ def cnn_optimize(X,Y):
     precision = dict()
     demo_cnn = cnn(X,Y,param_list[0])
     print('good ',param_list[100000])
-    for i in range(100000,100100):
+    for i in range(120000,120100):
         print(param_list[i])
         precision[str(i)] = demo_cnn.kcv(param_list[i])
         print('training idx : ' + str(i))

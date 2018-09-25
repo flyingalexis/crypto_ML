@@ -5,6 +5,8 @@ import tensorflow as tf
 import time
 from datetime import timedelta
 
+# {'lr': Decimal('0.1'), 'filter_num': (144, 136, 72, 128), 'layers_num': 4}
+
 LOGDIR = 'tmp/report/'
 class cnn:
   def __init__(self, X , Y, h_params):
@@ -21,7 +23,7 @@ class cnn:
       'filter_size': 2,
       'fc_size': [128,128],
       'input_channel' : 1,
-      'concession': 0.02  # error within 2%
+      'concession': 0.05  # error within 2%
     }
 
     self.hyper_param.update(h_params)
@@ -93,7 +95,8 @@ class cnn:
     # self.y_pred = tf.nn.softmax(self.layer_fc2) # not using the softmax for now 
     with tf.name_scope("accuracy"):
       self.correct = tf.less_equal(tf.abs(tf.subtract(self.layer_fc2, self.y_true, name=None)), self.hyper_param['concession'])
-      self.accuracy = tf.reduce_mean(tf.cast(self.correct, tf.float32))
+      sp1,sp2 = tf.split(self.correct, num_or_size_splits=2, axis=1)
+      self.accuracy = tf.reduce_mean(tf.cast(sp1, tf.float32))
       tf.summary.scalar("accuracy", self.accuracy)
 
     # cost function
@@ -118,17 +121,18 @@ class cnn:
     start_time = time.time()
     if num_iterations == None or num_iterations > self.batch_num:
       num_iterations = self.batch_num
-    for i in range(0, int(num_iterations)):
-      x_batch, y_true_batch = self.X_batches[i] , self.Y_batches[i]
-      feed_dict_train = {self.x: x_batch, self.y_true: y_true_batch}
-      self.session.run(self.optimizer, feed_dict=feed_dict_train)
-      s = self.session.run(merged_summary, feed_dict=feed_dict_train)
-      writer.add_summary(s,i)
+    for j in range(0,100):                        # Data not enough , reuse training set
+      for i in range(0, int(num_iterations)):
+        x_batch, y_true_batch = self.X_batches[i] , self.Y_batches[i]
+        feed_dict_train = {self.x: x_batch, self.y_true: y_true_batch}
+        self.session.run(self.optimizer, feed_dict=feed_dict_train)
+        s = self.session.run(merged_summary, feed_dict=feed_dict_train)
+        writer.add_summary(s,i)
     end_time = time.time()
     time_dif = end_time - start_time
     feed_dict_train = {self.x: self.X_batches[0], self.y_true: self.Y_batches[0]}
     print(self.hyper_param)
-    print(self.session.run(self.layer_fc2, feed_dict=feed_dict_train))
+    print(self.accuracy_test())
     print("Time usage: " + str(timedelta(seconds=int(round(time_dif))))) 
   
   def accuracy_test(self):
@@ -147,7 +151,6 @@ class cnn:
       f_dict = {self.x: self.X[train_index] , self.y_true: self.Y[train_index] }
       self.session.run(self.optimizer, feed_dict=f_dict )
       f_dict_test = {self.x: self.X[test_index] , self.y_true: self.Y[test_index] }
-      print('prediction : {}', self.session.run(self.layer_fc2, feed_dict=f_dict ))
       accs.append(self.session.run(self.accuracy, feed_dict=f_dict_test))
     return sum(accs)/len(accs)
       
