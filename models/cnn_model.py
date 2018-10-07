@@ -12,8 +12,6 @@ class cnn:
   def __init__(self, X , Y, h_params):
     self.X = X.reshape(X.shape[0],-1)
     self.Y = Y
-    np.savetxt('X.out', self.X, delimiter=',')
-    np.savetxt('Y.out', self.Y, delimiter=',')
     self.X_train ,self.X_test , self.Y_train, self.Y_test = sk.train_test_split(self.X, self.Y, test_size= 0.2 , shuffle=True)
     self.hyper_param =	{     # default h-params
       "lr": 0.2,          # learning rate
@@ -126,8 +124,8 @@ class cnn:
         x_batch, y_true_batch = self.X_batches[i] , self.Y_batches[i]
         feed_dict_train = {self.x: x_batch, self.y_true: y_true_batch}
         self.session.run(self.optimizer, feed_dict=feed_dict_train)
-        s = self.session.run(merged_summary, feed_dict=feed_dict_train)
-        writer.add_summary(s,i)
+        # s = self.session.run(merged_summary, feed_dict=feed_dict_train)
+        # writer.add_summary(s,i)
     end_time = time.time()
     time_dif = end_time - start_time
     feed_dict_train = {self.x: self.X_batches[0], self.y_true: self.Y_batches[0]}
@@ -148,8 +146,9 @@ class cnn:
     
     for train_index, test_index in self.kf.split(self.X):
       self.session.run(tf.global_variables_initializer())
-      f_dict = {self.x: self.X[train_index] , self.y_true: self.Y[train_index] }
-      self.session.run(self.optimizer, feed_dict=f_dict )
+      for i in range(0,100):
+        f_dict = {self.x: self.X[train_index] , self.y_true: self.Y[train_index] }
+        self.session.run(self.optimizer, feed_dict=f_dict )
       f_dict_test = {self.x: self.X[test_index] , self.y_true: self.Y[test_index] }
       accs.append(self.session.run(self.accuracy, feed_dict=f_dict_test))
     return sum(accs)/len(accs)
