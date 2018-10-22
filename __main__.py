@@ -1,12 +1,22 @@
 import pandas as pd
 import os
-from dataProcess import csv_process,cnn_preprocess,sequential_preprocess
-from models import cnn_model
+from dataProcess import cnn_preprocess,sequential_preprocess
+from models import cnn_model,lstm_model
 from models import params_optimizer as p_o
 import decimal
 
-df = csv_process.merge_csv('hsi')
-sequential_preprocess.data_preprocess(df)
+# load csv
+# from utils import database
+# df = database.getDataDf('XRPUSD','1m')
+# df.to_csv('{0}_{1}.csv'.format('XRPUSD','1m'))
+# read csv
+
+df = pd.DataFrame.from_csv('{0}_{1}.csv'.format('BTCUSD','1m'))
+ids = df["t"]
+dup_df = df[ids.isin(ids[ids.duplicated()])]
+dup_df.to_csv('dupdf.csv')
+# data_x, data_y = sequential_preprocess.data_preprocess(df)
+# lstm_model.run_network(data = (data_x, data_y))
 
 
 # ============================== data feeding  ===============================================

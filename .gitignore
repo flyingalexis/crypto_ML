@@ -3,3 +3,5 @@ log/
 .vscode
 .vscode/
 tmp/
+datasets/
+.env
