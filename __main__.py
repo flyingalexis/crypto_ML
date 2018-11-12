@@ -11,13 +11,16 @@ import decimal
 # df.to_csv('{0}_{1}.csv'.format('XRPUSD','1m'))
 # read csv
 
-df = pd.DataFrame.from_csv('{0}_{1}.csv'.format('BTCUSD','1m'))
-ids = df["t"]
-dup_df = df[ids.isin(ids[ids.duplicated()])]
-dup_df.to_csv('dupdf.csv')
-# data_x, data_y = sequential_preprocess.data_preprocess(df)
-# lstm_model.run_network(data = (data_x, data_y))
+df = pd.DataFrame.from_csv('datasets/crypto_hist/{0}_{1}.csv'.format('XRPUSD','1m'))
 
+# ---------------------------------------LSTM----------------------------------
+data_x, data_y, idx ,loop_cond = sequential_preprocess.data_preprocess(df)
+print(data_x.shape)
+# m_lstm = lstm_model.lstm(data_x,data_y)
+# m_lstm.run_network(data_x,data_y)
+# while loop_cond:
+#     data_x, data_y, idx ,loop_cond = sequential_preprocess.data_preprocess(df,idx = idx)
+#     m_lstm.run_network(data_x,data_y)
 
 # ============================== data feeding  ===============================================
 # data_X , data_Y= cnn_preprocess.data_preprocess(df,'D')
