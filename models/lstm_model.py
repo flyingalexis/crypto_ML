@@ -18,10 +18,16 @@ import gc
 from skopt import gp_minimize
 from skopt.space import Real, Categorical, Integer
 from skopt.utils import use_named_args
+import csv
 
 gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.6)
 config = tf.ConfigProto(log_device_placement=False,gpu_options=gpu_options)
 set_session(tf.Session(config=config))
+min_cost = None 
+
+with open('hyper_param_output.csv', 'w', newline='') as csvfile:
+  writer = csv.writer(csvfile)
+  writer.writerow(['setting','loss', 'acc', 'concess_prec', 'avg_difference'])
 
 class lstm:
     def __init__(self, x_shape,y_shape ,decode_func, h_params = dict()):
@@ -62,11 +68,18 @@ class lstm:
 
     def generator_test(self, generator, test_generator = None):
         try:
-            print('try_ fit')
             self.model.fit_generator(generator=generator, use_multiprocessing=False,verbose=1)
-            print('good_ fit')
+            global min_cost
             if test_generator is not None:
                 metrics = self.model.evaluate_generator(test_generator)   # use test by generator
+                print(metrics)
+                
+                with open('hyper_param_output.csv', 'a', newline='') as csvfile:
+                    writer = csv.writer(csvfile)
+                    writer.writerow([str(self.hyper_param), *metrics])
+
+                if min_cost is None or metrics[0] < min_cost:
+                    model.save("models_data/best_lstm.h5")
                 return metrics
         except Exception as e: print(e)
 
@@ -100,21 +113,6 @@ class lstm:
             traceback.print_exc()
         return model
 
-    """ when validation_portion == 0 that means only train but not validate """
-    def run_network(self, X, Y , validation_portion = 0):
-        global_start_time = time.time()
-        epochs = 1
-        try:
-            self.model.fit(
-                X,Y,
-                batch_size=64, epochs=epochs, validation_split=0.00)
-            self.model.save("models_data/" + self.get_model_str() + ".h5")
-            # predicted = self.model.predict(x_test)
-            # predicted = np.reshape(predicted, (predicted.size,))
-        except KeyboardInterrupt:
-            print ('Training duration (s) : ', time.time() - global_start_time)
-            return self.model, 0
-    
     def avg_difference(self, y_true, y_pred):
         pred_act = self.decode_func[0](y_pred)
         true_act = self.decode_func[0](y_true)
@@ -228,8 +226,8 @@ df = pd.read_csv('datasets/crypto_hist/{0}_{1}.csv'.format('XRPUSD','1m'))
 train_test_boundary = int(df.shape[0] * 0.8)
 train_df = df.iloc[: train_test_boundary,]
 test_df = df.iloc[train_test_boundary:,]
-dg = DataGenerator(data = train_df, df = df , stride = 1000)
-test_dg = DataGenerator(data = test_df, df = df , stride = 1000)
+dg = DataGenerator(data = train_df, df = df , stride = 5)
+test_dg = DataGenerator(data = test_df, df = df , stride = 5)
 md = lstm(x_shape= 5, y_shape = 4,decode_func = dg.get_decode_func())
 
 @use_named_args(dimensions=space)
