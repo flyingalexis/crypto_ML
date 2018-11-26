@@ -257,33 +257,33 @@ def fitness(learning_rate, num_layers ,num_nodes, dropout_rate,num_dense_layers 
     return cost[0]
 
 
-def test_func():
-    ''' it is for debug the iterating system'''
-    global dg, md
-    K.clear_session()
-    print('clear session')
-    try:
-        gc.collect()
-    except Exception as e:
-        logging.exception(repr(e) + ' while gc.collect()')
-    print('after GC')
-    # dg = DataGenerator(data = train_df, df = df , stride = 1000)
-    # test_dg = DataGenerator(data = test_df, df = df , stride = 1000)
-    md.__init__(x_shape= 5, y_shape = 4,decode_func = dg.get_decode_func())
-    cost = md.generator_test(dg) # x_ y _ test
-    print("cost: {0}".format(cost))
+# def test_func():
+#     ''' it is for debug the iterating system'''
+#     global dg, md
+#     K.clear_session()
+#     print('clear session')
+#     try:
+#         gc.collect()
+#     except Exception as e:
+#         logging.exception(repr(e) + ' while gc.collect()')
+#     print('after GC')
+#     # dg = DataGenerator(data = train_df, df = df , stride = 1000)
+#     # test_dg = DataGenerator(data = test_df, df = df , stride = 1000)
+#     md.__init__(x_shape= 5, y_shape = 4,decode_func = dg.get_decode_func())
+#     cost = md.generator_test(dg) # x_ y _ test
+#     print("cost: {0}".format(cost))
     
 # default_parameters = [1, 5, 1e-5, 0,1,64]
 # fitness(x=default_parameters)
 
 try:
-    # search_result = gp_minimize(func=fitness,
-    #                         dimensions=space,
-    #                         acq_func='EI', # Expected Improvement.
-    #                         n_calls=40)
-    for i in range(5):
-        print('iteration: {0}'.format(i))
-        test_func() 
+    search_result = gp_minimize(func=fitness,
+                            dimensions=space,
+                            acq_func='EI', # Expected Improvement.
+                            n_calls=40)
+    # for i in range(5):
+    #     print('iteration: {0}'.format(i))
+    #     test_func() 
 except Exception as e:
     print('error exist')
     print(e)
