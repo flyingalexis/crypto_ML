@@ -72,14 +72,13 @@ class lstm:
             global min_cost
             if test_generator is not None:
                 metrics = self.model.evaluate_generator(test_generator)   # use test by generator
-                print(metrics)
                 
                 with open('hyper_param_output.csv', 'a', newline='') as csvfile:
                     writer = csv.writer(csvfile)
                     writer.writerow([str(self.hyper_param), *metrics])
 
                 if min_cost is None or metrics[0] < min_cost:
-                    model.save("models_data/best_lstm.h5")
+                    self.model.save("models_data/best_lstm.h5")
                 return metrics
         except Exception as e: print(e)
 
@@ -226,13 +225,12 @@ df = pd.read_csv('datasets/crypto_hist/{0}_{1}.csv'.format('XRPUSD','1m'))
 train_test_boundary = int(df.shape[0] * 0.8)
 train_df = df.iloc[: train_test_boundary,]
 test_df = df.iloc[train_test_boundary:,]
-dg = DataGenerator(data = train_df, df = df , stride = 5)
-test_dg = DataGenerator(data = test_df, df = df , stride = 5)
+dg = DataGenerator(data = train_df, df = df , stride = 1000)
+test_dg = DataGenerator(data = test_df, df = df , stride = 1000)
 md = lstm(x_shape= 5, y_shape = 4,decode_func = dg.get_decode_func())
 
 @use_named_args(dimensions=space)
 def fitness(learning_rate, num_layers ,num_nodes, dropout_rate,num_dense_layers , num_dense_nodes):
-    print('Start SKOPT !')
     global run_ctr
     global df, dg, test_dg, md
     K.clear_session()
@@ -254,34 +252,11 @@ def fitness(learning_rate, num_layers ,num_nodes, dropout_rate,num_dense_layers 
     print("cost: {0}".format(cost))
     return cost[0]
 
-
-# def test_func():
-#     ''' it is for debug the iterating system'''
-#     global dg, md
-#     K.clear_session()
-#     print('clear session')
-#     try:
-#         gc.collect()
-#     except Exception as e:
-#         logging.exception(repr(e) + ' while gc.collect()')
-#     print('after GC')
-#     # dg = DataGenerator(data = train_df, df = df , stride = 1000)
-#     # test_dg = DataGenerator(data = test_df, df = df , stride = 1000)
-#     md.__init__(x_shape= 5, y_shape = 4,decode_func = dg.get_decode_func())
-#     cost = md.generator_test(dg) # x_ y _ test
-#     print("cost: {0}".format(cost))
-    
-# default_parameters = [1, 5, 1e-5, 0,1,64]
-# fitness(x=default_parameters)
-
 try:
     search_result = gp_minimize(func=fitness,
                             dimensions=space,
                             acq_func='EI', # Expected Improvement.
                             n_calls=40)
-    # for i in range(5):
-    #     print('iteration: {0}'.format(i))
-    #     test_func() 
 except Exception as e:
     print('error exist')
     print(e)
