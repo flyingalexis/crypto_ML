@@ -78,6 +78,7 @@ class lstm:
                     writer.writerow([str(self.hyper_param), *metrics])
 
                 if min_cost is None or metrics[0] < min_cost:
+                    min_cost = metrics[0] 
                     self.model.save("models_data/best_lstm.h5")
                 return metrics
         except Exception as e: print(e)
