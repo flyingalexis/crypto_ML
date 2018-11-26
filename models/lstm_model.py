@@ -27,7 +27,7 @@ min_cost = None
 
 with open('hyper_param_output.csv', 'w', newline='') as csvfile:
   writer = csv.writer(csvfile)
-  writer.writerow(['setting','loss', 'acc', 'concess_prec', 'avg_difference'])
+  writer.writerow(['setting','loss', 'concess_prec', 'avg_difference', 'avg_percentage_difference'])
 
 class lstm:
     def __init__(self, x_shape,y_shape ,decode_func, h_params = dict()):
@@ -48,8 +48,9 @@ class lstm:
     def load_model(self):
         model_path = "models_data/" + self.get_model_str() + ".h5"
         my_file = Path(model_path)
+        metrics = {'concess_prec': self.concess_prec,'avg_difference': self.avg_difference, 'avg_percentage_difference': self.avg_percentage_difference}# make the precision function be dynamic in the future
         if my_file.exists():
-            self.model = km.load_model(model_path,custom_objects={'concess_prec': concess_prec}) # make the precision function be dynamic in the future
+            self.model = km.load_model(model_path,custom_objects=metrics) 
             if self.model is None:
                 self.model = self.build_model()
                 print('create new model')
@@ -105,7 +106,7 @@ class lstm:
                 model.add(Activation("elu"))
 
             start = time.time()
-            model.compile(loss="mse", optimizer="rmsprop", metrics=['accuracy', concess_prec, self.avg_difference])
+            model.compile(loss="mse", optimizer="rmsprop", metrics=[self.concess_prec, self.avg_difference, self.avg_percentage_difference])
             print("Compilation Time : ", time.time() - start)
             print(model.summary())
         except Exception as e: 
@@ -113,6 +114,14 @@ class lstm:
             traceback.print_exc()
         return model
 
+    def avg_percentage_difference(self, y_true, y_pred):
+        pred_act = self.decode_func[0](y_pred)
+        true_act = self.decode_func[0](y_true)
+        diff = tf.subtract(pred_act, true_act)
+        diff = K.abs(diff)
+        percentage_diff = tf.divide( diff ,true_act ,name=None)
+        return K.mean(percentage_diff)
+    
     def avg_difference(self, y_true, y_pred):
         pred_act = self.decode_func[0](y_pred)
         true_act = self.decode_func[0](y_true)
@@ -120,20 +129,19 @@ class lstm:
         diff = K.abs(diff)
         return K.mean(diff)
 
+    ### self-defined accuracy metrics       make the concession to be managable in the future
+    def concess_prec(self, y_true, y_pred):
+        pred_act = self.decode_func[0](y_pred)
+        true_act = self.decode_func[0](y_true)
+        diff = tf.subtract(pred_act, true_act)
+        diff = K.abs(diff)
+        percentage_diff = tf.divide( diff ,true_act ,name=None)
+        prec = K.less_equal(percentage_diff, 0.002)
+        return K.mean(prec)
+
     def delete_model(self):
         del self.model
 
-
-
-
-### self-defined accuracy metrics       make the concession to be managable in the future
-def concess_prec(y_true, y_pred):
-    # K.less_equal(y_true,)
-    prec = tf.subtract(y_pred, y_true)
-    prec = K.abs(prec)
-    prec = K.less_equal(prec, 0.002)
-
-    return K.mean(prec)
 
 ###  data genereator  implementing
 

@@ -4,5 +4,6 @@ log/
 .vscode/
 tmp/
 datasets/
+models_data/
 .env
 hyper_param_output.csv
