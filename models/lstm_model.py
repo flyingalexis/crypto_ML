@@ -12,7 +12,14 @@ import tensorflow as tf
 import keras.backend as K
 import pandas as pd
 from keras.backend.tensorflow_backend import set_session
-gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.7)
+import traceback
+import gc
+# optimize
+from skopt import gp_minimize
+from skopt.space import Real, Categorical, Integer
+from skopt.utils import use_named_args
+
+gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.6)
 config = tf.ConfigProto(log_device_placement=False,gpu_options=gpu_options)
 set_session(tf.Session(config=config))
 
@@ -24,6 +31,7 @@ class lstm:
             'drop_out': 0.1,
             'fc_size': [128,128]
             }
+        self.hyper_param.update(h_params)
         self.batch_size = 64
         self.accuracy_concession = 0.001
         self.input_x_shape = x_shape
@@ -52,35 +60,44 @@ class lstm:
             st = st + '_' + str(value)
         return st
 
-    def generator_test(self, generator):
-        self.model.fit_generator(generator=generator,
-                    use_multiprocessing=False)
+    def generator_test(self, generator, test_generator = None):
+        try:
+            print('try_ fit')
+            self.model.fit_generator(generator=generator, use_multiprocessing=False,verbose=1)
+            print('good_ fit')
+            if test_generator is not None:
+                metrics = self.model.evaluate_generator(test_generator)   # use test by generator
+                return metrics
+        except Exception as e: print(e)
+
 
     def build_model(self):
-        model = Sequential()
-        for idx ,ls in enumerate(self.hyper_param['layers_size']):
-            input_s = self.input_x_shape if idx == 0 else self.hyper_param['layers_size'][idx -1]
-            ret_seq = True if idx != len(self.hyper_param['layers_size']) - 1 else False            # only the last lstm do not return sequence
-            print('construct LSTM LAYER with Input size ' + str(self.hyper_param['layers_size'][idx -1]))
-            print('construct LSTM LAYER with Output size ' + str(ls))
-            model.add(LSTM(
-            ls,
-            input_shape=(None,input_s),
-            return_sequences=ret_seq))
-            model.add(Dropout(0.2))
+        print('make model....')
+        try:
+            model = Sequential()
+            for idx ,ls in enumerate(self.hyper_param['layers_size']):
+                input_s = self.input_x_shape if idx == 0 else self.hyper_param['layers_size'][idx -1]
+                ret_seq = True if idx != len(self.hyper_param['layers_size']) - 1 else False            # only the last lstm do not return sequence
+                model.add(LSTM(
+                ls,
+                input_shape=(None,input_s),
+                return_sequences=ret_seq))
+                model.add(Dropout(self.hyper_param['drop_out']))
 
-        for idx ,ls in enumerate(self.hyper_param['fc_size']):      # assume all fc_layers has activation function
-            if idx == len(self.hyper_param['fc_size']) -1:
-                print('construct models with output size ' + str(self.input_y_shape))
-                model.add(Dense(self.input_y_shape))
-            else:
-                model.add(Dense(self.hyper_param['fc_size'][idx+1]))
-            model.add(Activation("elu"))
+            for idx ,ls in enumerate(self.hyper_param['fc_size']):      # assume all fc_layers has activation function
+                if idx == len(self.hyper_param['fc_size']) -1:
+                    model.add(Dense(self.input_y_shape))
+                else:
+                    model.add(Dense(self.hyper_param['fc_size'][idx+1]))
+                model.add(Activation("elu"))
 
-        start = time.time()
-        model.compile(loss="mse", optimizer="rmsprop", metrics=['accuracy', concess_prec, self.avg_difference])
-        print("Compilation Time : ", time.time() - start)
-        print(model.summary())
+            start = time.time()
+            model.compile(loss="mse", optimizer="rmsprop", metrics=['accuracy', concess_prec, self.avg_difference])
+            print("Compilation Time : ", time.time() - start)
+            print(model.summary())
+        except Exception as e: 
+            print(e)
+            traceback.print_exc()
         return model
 
     """ when validation_portion == 0 that means only train but not validate """
@@ -105,6 +122,9 @@ class lstm:
         diff = K.abs(diff)
         return K.mean(diff)
 
+    def delete_model(self):
+        del self.model
+
 
 
 
@@ -121,20 +141,22 @@ def concess_prec(y_true, y_pred):
 
 class DataGenerator(keras.utils.Sequence):
     'Generates data for Keras'
-    def __init__(self, df, x_len = 1440, y_len = 60, batch_size=128, stride = 5,shuffle=True):
+    def __init__(self, data ,df, x_len = 1440, y_len = 60, batch_size=64, stride = 5,shuffle=True):
         'Initialization'
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.stride = stride 
         self.x_len = x_len
         self.y_len = y_len
-        self.data = df
+        self.data = data        # the data actually going to be processed
+        self.df = df            # for data preprocessing
         self.__init_normalization_params()
         self.on_epoch_end()
         self.ct = 0
+        print('init Daata generator {0} '.format(df.shape))
 
     def __init_normalization_params(self):
-        df = self.data
+        df = self.df
         max = df['high'].max()
         min = df['low'].min()       # need it for decoding the prediction
         norm_fac = max - min         # need it for decoding the prediction
@@ -191,7 +213,82 @@ class DataGenerator(keras.utils.Sequence):
 
         return X, y
 
+
+space = [
+        Integer(1, 2, name="num_layers"),
+        Integer(10, 100, name="num_nodes"),
+        Real(1e-5, 1e-2, "log-uniform", name="learning_rate"),
+        Real(0, 0.5, name="dropout_rate"),
+        Integer(1, 2, name="num_dense_layers"),
+        Integer(64, 128, name="num_dense_nodes"),
+    ]
+run_ctr = 0
+gc.enable()
 df = pd.read_csv('datasets/crypto_hist/{0}_{1}.csv'.format('XRPUSD','1m'))
-dg = DataGenerator(df)
+train_test_boundary = int(df.shape[0] * 0.8)
+train_df = df.iloc[: train_test_boundary,]
+test_df = df.iloc[train_test_boundary:,]
+dg = DataGenerator(data = train_df, df = df , stride = 1000)
+test_dg = DataGenerator(data = test_df, df = df , stride = 1000)
 md = lstm(x_shape= 5, y_shape = 4,decode_func = dg.get_decode_func())
-md.generator_test(dg)
+
+@use_named_args(dimensions=space)
+def fitness(learning_rate, num_layers ,num_nodes, dropout_rate,num_dense_layers , num_dense_nodes):
+    print('Start SKOPT !')
+    global run_ctr
+    global df, dg, test_dg, md
+    K.clear_session()
+    del md.model
+    gc.collect()
+    run_ctr = run_ctr + 1
+    print('Iteration {0}'.format(run_ctr))
+
+    layers_size = [num_nodes for n in range(num_layers)]
+    fc_size = [num_dense_nodes for n in range(num_dense_layers)]
+    params = {
+        'lr' : learning_rate,
+        'layers_size' : layers_size,
+        'fc_size' : fc_size,
+        'dropout': dropout_rate
+    }
+    md.__init__(x_shape= 5, y_shape = 4,decode_func = dg.get_decode_func(), h_params = params)
+    cost = md.generator_test(dg, test_dg) # x_ y _ test
+    print("cost: {0}".format(cost))
+    return cost[0]
+
+
+def test_func():
+    ''' it is for debug the iterating system'''
+    global dg, md
+    K.clear_session()
+    print('clear session')
+    try:
+        gc.collect()
+    except Exception as e:
+        logging.exception(repr(e) + ' while gc.collect()')
+    print('after GC')
+    # dg = DataGenerator(data = train_df, df = df , stride = 1000)
+    # test_dg = DataGenerator(data = test_df, df = df , stride = 1000)
+    md.__init__(x_shape= 5, y_shape = 4,decode_func = dg.get_decode_func())
+    cost = md.generator_test(dg) # x_ y _ test
+    print("cost: {0}".format(cost))
+    
+# default_parameters = [1, 5, 1e-5, 0,1,64]
+# fitness(x=default_parameters)
+
+try:
+    # search_result = gp_minimize(func=fitness,
+    #                         dimensions=space,
+    #                         acq_func='EI', # Expected Improvement.
+    #                         n_calls=40)
+    for i in range(5):
+        print('iteration: {0}'.format(i))
+        test_func() 
+except Exception as e:
+    print('error exist')
+    print(e)
+    traceback.print_exc()
+
+print('Best params')
+print(search_result.x)
+md = lstm(x_shape= 5, y_shape = 4,decode_func = dg.get_decode_func())
