@@ -27,7 +27,7 @@ min_cost = None
 
 with open('hyper_param_output.csv', 'w', newline='') as csvfile:
   writer = csv.writer(csvfile)
-  writer.writerow(['setting','loss', 'concess_prec', 'avg_difference', 'avg_percentage_difference'])
+  writer.writerow(['setting','loss', 'concess_prec_0_2', 'concess_prec_0_3', 'concess_prec_0_5', 'avg_difference', 'avg_percentage_difference'])
 
 class lstm:
     def __init__(self, x_shape,y_shape ,decode_func, h_params = dict()):
@@ -48,7 +48,12 @@ class lstm:
     def load_model(self):
         model_path = "models_data/" + self.get_model_str() + ".h5"
         my_file = Path(model_path)
-        metrics = {'concess_prec': self.concess_prec,'avg_difference': self.avg_difference, 'avg_percentage_difference': self.avg_percentage_difference}# make the precision function be dynamic in the future
+        metrics = {'concess_prec_0_2': self.concess_prec_0_2,
+        'concess_prec_0_3': self.concess_prec_0_3,
+        'concess_prec_0_5': self.concess_prec_0_5,
+        'avg_difference': self.avg_difference, 
+        'avg_percentage_difference': self.avg_percentage_difference
+        }# make the precision function be dynamic in the future
         if my_file.exists():
             self.model = km.load_model(model_path,custom_objects=metrics) 
             if self.model is None:
@@ -106,7 +111,7 @@ class lstm:
                 model.add(Activation("elu"))
 
             start = time.time()
-            model.compile(loss="mse", optimizer="rmsprop", metrics=[self.concess_prec, self.avg_difference, self.avg_percentage_difference])
+            model.compile(loss="mse", optimizer="rmsprop", metrics=[self.concess_prec_0_2,self.concess_prec_0_3,self.concess_prec_0_5, self.avg_difference, self.avg_percentage_difference])
             print("Compilation Time : ", time.time() - start)
             print(model.summary())
         except Exception as e: 
@@ -130,13 +135,31 @@ class lstm:
         return K.mean(diff)
 
     ### self-defined accuracy metrics       make the concession to be managable in the future
-    def concess_prec(self, y_true, y_pred):
+    def concess_prec_0_2(self, y_true, y_pred):
         pred_act = self.decode_func[0](y_pred)
         true_act = self.decode_func[0](y_true)
         diff = tf.subtract(pred_act, true_act)
         diff = K.abs(diff)
         percentage_diff = tf.divide( diff ,true_act ,name=None)
         prec = K.less_equal(percentage_diff, 0.002)
+        return K.mean(prec)
+
+    def concess_prec_0_3(self, y_true, y_pred):
+        pred_act = self.decode_func[0](y_pred)
+        true_act = self.decode_func[0](y_true)
+        diff = tf.subtract(pred_act, true_act)
+        diff = K.abs(diff)
+        percentage_diff = tf.divide( diff ,true_act ,name=None)
+        prec = K.less_equal(percentage_diff, 0.003)
+        return K.mean(prec)
+
+    def concess_prec_0_5(self, y_true, y_pred):
+        pred_act = self.decode_func[0](y_pred)
+        true_act = self.decode_func[0](y_true)
+        diff = tf.subtract(pred_act, true_act)
+        diff = K.abs(diff)
+        percentage_diff = tf.divide( diff ,true_act ,name=None)
+        prec = K.less_equal(percentage_diff, 0.005)
         return K.mean(prec)
 
     def delete_model(self):
@@ -230,7 +253,7 @@ space = [
     ]
 run_ctr = 0
 gc.enable()
-df = pd.read_csv('datasets/crypto_hist/{0}_{1}.csv'.format('XRPUSD','1m'))
+df = pd.read_csv('datasets/crypto_hist/{0}_{1}.csv'.format('BCHUSD','1m'))
 train_test_boundary = int(df.shape[0] * 0.8)
 train_df = df.iloc[: train_test_boundary,]
 test_df = df.iloc[train_test_boundary:,]
