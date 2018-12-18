@@ -5,5 +5,7 @@ log/
 tmp/
 datasets/
 models_data/
+backtest.py
+nohup.out
 .env
 hyper_param_output.csv
